@@ -2,27 +2,41 @@ import pandas as pd
 from dataclasses import dataclass
 from webfeeds import CBCWebFeed, GovernmentWebFeed
 import os
-
-DEBUG = True
+import time
+from settings import MAX_THREADS, DEBUG
+from concurrent.futures import ThreadPoolExecutor
+import logging
 
 # makes output if it doesnt exist as a folder
 os.makedirs("output", exist_ok=True)
-pd.set_option("display.max_columns", None)  # Ensure all columns are visible
-pd.set_option("display.max_colwidth", None) # Preventing truncuation
-pd.set_option("display.width", 200) # Increase console width
+
+start_time = time.time()
 
 # Making all webfeeds into a varialbe
-govfeed = GovernmentWebFeed()
-cbcfeed = CBCWebFeed()
+news_data = []
+webfeeds = [
+    GovernmentWebFeed(),
+    CBCWebFeed()
+]
 
 # Getting all webfeeds according to word(s)
-news_data = []
-# news_data.update(govfeed.get_webfeed(["banana", "banana"], ["banana"]))
-news_data.extend(cbcfeed.get_webfeed(["drugs", "drug"], ["fentanyl"]))
-df = pd.DataFrame(news_data)
+with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+    results = executor.map(lambda feed: feed.get_webfeed(["drugs", "drug"], ["fentanyl"]), webfeeds)
 
-if DEBUG:
-    print(df)
+news_data = [article for result in results for article in result] # flatten into one array
+
+try:
+    df = pd.DataFrame(news_data)
+except Exception as e:
+    logging.debug(f'Error converting to data: {e}')
+    df = None
+
+
+logging.debug(df)
+end_time = time.time()
+elapsed_time = end_time - start_time
+print(f'Elapsed time: {elapsed_time:.3f}s')
 
 # Print to a .csv file
-#df.to_csv('output/news_articles.csv')
+df.to_csv('output/news_articles.csv')
+

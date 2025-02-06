@@ -1,9 +1,18 @@
+from concurrent.futures import ThreadPoolExecutor
+from _pytest.monkeypatch import K
 import pandas as pd
 import feedparser
 from dataclasses import dataclass, field
 from typing import Literal
 from bs4 import BeautifulSoup
 import requests
+from settings import MAX_THREADS
+import logging
+
+'''
+    For most RSS/ATOM feeds that don't require JavaScript
+'''
+
 
 '''
     Parent class for all WebFeeds
@@ -17,22 +26,31 @@ class WebFeed:
     parser_type: Literal["html", "xml"] = "html"
     
     '''
+        Get an HTTP request's content. Return none if any errors
+    '''
+    def get_request(self, url) -> bytes:
+        try:
+            response = requests.get(url, headers=self.headers, timeout=5)
+            response.raise_for_status()
+            return response.content
+        except requests.Timeout:
+            logging.debug(f"Timeout on {url}. Skipping...")
+        except requests.RequestException as e:
+            logging.debug(f"Request failed on {url}: {e}")
+        return None
+    
+    '''
         From the base_url given, get all of the RSS or ATOM web feeds
         
         Returns a set of RSS/ATOM links
     '''
     def get_urls(self) -> set[str]:
-        try:
-            response = requests.get(self.base_url,headers=self.headers, timeout=10)
-            response.raise_for_status()
-        except requests.Timeout:
-            print(f'Timeout error: {self.base_url}. Skipping...')
-            return set()
-        except requests.RequestException as e:
-            print(f'Error getting url {self.base_url}: {e}')
-            return set()
+        content = self.get_request(self.base_url)
 
-        soup = BeautifulSoup(response.content, f'{self.parser_type}.parser')
+        if not content:
+            return set()
+        
+        soup = BeautifulSoup(content, f'{self.parser_type}.parser')
         links = [a.get("href") for a in soup.find_all("a") if a.get("href")]
         links = [link for link in links if 'rss' in link or 'atom' in link]
         return set(links)
@@ -57,73 +75,79 @@ class WebFeed:
         
         Returns boolean
     '''
-    def check_entry_for_word(self, words: list[str], link) -> bool:
-        try:
-            response = requests.get(link, headers=self.headers, timeout=10)
-            response.raise_for_status()
-        except requests.Timeout:
-            print(f'Timeout error: {link}. Skipping...')
-            return False
-        except requests.RequestException as e:
-            print(f'Error getting entry {link}: {e}')
-            return False
-        
+    def check_entry_for_word(self, words: list[str], content) -> bool:
         # parse the news article itself
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = BeautifulSoup(content, 'html.parser')
         page_text = soup.body.get_text().lower() if soup.body else ""
         if any(word in page_text for word in words): # check to ensure there is talk of keywords within
             return True
         return False
     
+    '''
+        Get all data from the webfeed links in base_url
+        
+        Returns a list of dictionaries of the title and links corresponding to the keywords
+    '''
     def get_webfeed(self, title_words: list[str], feed_words: list[str]) -> list[dict]:
+        print(f'Processing {self.base_url}...')
         urls = self.get_urls()
-        if not urls or not title_words: # if there are no title words to search for, too much data
+        if not urls or not title_words: 
             return []
         
         news_data = []
         seen_links = set()
-        for url in urls:
-            try:
-                response = requests.get(url, headers=self.headers, timeout=5)
-                response.raise_for_status()
-            except requests.Timeout:
-                print(f"Timeout on {url}. Skipping...")
-                continue
-            except requests.RequestException as e:
-                print(f"Request failed on {url}: {e}")
+        
+        # get all feed entries 
+        with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+            all_entries = list(executor.map(self.get_request, urls))
+            
+        # parse through all webfeed links and look for keywords
+        for entry in all_entries:
+            if not entry:
                 continue
             
             # get feed data (dict of items/entries)
-            feed = feedparser.parse(response.content)
-            
+            feed = feedparser.parse(entry)
             entries = getattr(feed, "entries", None) or \
                 getattr(feed.feed, "items", None) or \
                 getattr(feed.feed, "channel", {}).get("item", []) or \
                 feed.get("items", [])
             
             if not isinstance(entries, list):
-                print(f"Unexpected format for entries: {type(entries)}. Skipping...")
+                logging.debug(f"Unexpected format for entries: {type(entries)}. Skipping...")
                 continue
-
             if not entries:
-                print(f"No entries found for {url}. Skipping...")
+                logging.debug(f"No entries found. Skipping...")
                 continue
             
             keyword_entries = self.check_feed_for_word(title_words, entries)
+            
+            # get all links, titles, and content via multithreading for faster iteration
+            links = []
+            titles = []
+
             for entry in keyword_entries:
-                # get the news article
                 link = entry.get("link")
                 if not link:
                     link = entry.get("id") if entry.get("id") else entry.get("guid")
-                    
-                print(link)
+                logging.debug(f'link processed: {link}')
+                links.append(link)
+                titles.append(entry['title'])
+
+            with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+                contents = set(executor.map(self.get_request, links))
+                
+            # for each entry inside of the webfeed that fits the initial keywords, look for secondary keywords
+            for title, link, content in zip(titles, links, contents):
+                if not content:
+                    continue 
 
                 if link in seen_links:
                     continue
                 
-                if self.check_entry_for_word(feed_words, link):
+                if self.check_entry_for_word(feed_words, content):
                     news_data.append({
-                        'Title': entry['title'],
+                        'Title': title,
                         'Link': link
                     })
                     seen_links.add(link)
@@ -141,3 +165,7 @@ class GovernmentWebFeed(WebFeed):
 @dataclass
 class CBCWebFeed(WebFeed):
     base_url: str = "https://www.cbc.ca/rss/"
+
+@dataclass
+class RCMPWebFeed(WebFeed):
+    base_url = "https://rcmp.ca/en/news#n"
