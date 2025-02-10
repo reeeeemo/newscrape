@@ -1,6 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor
-from _pytest.monkeypatch import K
-import pandas as pd
 import feedparser
 from dataclasses import dataclass, field
 from typing import Literal
@@ -8,6 +6,7 @@ from bs4 import BeautifulSoup
 import requests
 from settings import MAX_THREADS
 import logging
+from urllib.parse import urlparse, urljoin
 
 '''
     For most RSS/ATOM feeds that don't require JavaScript
@@ -20,6 +19,7 @@ import logging
 @dataclass
 class WebFeed:
     base_url: str = field(default_factory=str)
+    path: str = field(default_factory=str)
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
@@ -29,6 +29,13 @@ class WebFeed:
         Get an HTTP request's content. Return none if any errors
     '''
     def get_request(self, url) -> bytes:
+        parsed = urlparse(url)
+
+        if not parsed.netloc: # path, not url
+            url = urljoin(self.base_url, url)
+        elif not parsed.scheme: # missing scheme
+            url = f"https://{url}"
+
         try:
             response = requests.get(url, headers=self.headers, timeout=5)
             response.raise_for_status()
@@ -45,14 +52,14 @@ class WebFeed:
         Returns a set of RSS/ATOM links
     '''
     def get_urls(self) -> set[str]:
-        content = self.get_request(self.base_url)
+        content = self.get_request(f"{self.base_url}{self.path}")
 
         if not content:
             return set()
         
         soup = BeautifulSoup(content, f'{self.parser_type}.parser')
         links = [a.get("href") for a in soup.find_all("a") if a.get("href")]
-        links = [link for link in links if 'rss' in link or 'atom' in link]
+        links = [link for link in links if 'rss' in link or 'atom' in link or 'feed' in link]
         return set(links)
     
     '''
@@ -66,7 +73,11 @@ class WebFeed:
             return []
             
         for entry in entries:
-            if any(word in entry['title'].lower() for word in words):
+            desc = entry['description']
+            if not desc:
+                desc = entry.get('summary') if entry.get('summary') else ""
+                
+            if any(word in entry['title'].lower() or word in desc for word in words):
                 keyword_entries.append(entry)
         return keyword_entries
     
@@ -89,11 +100,10 @@ class WebFeed:
         Returns a list of dictionaries of the title and links corresponding to the keywords
     '''
     def get_webfeed(self, title_words: list[str], feed_words: list[str]) -> list[dict]:
-        print(f'Processing {self.base_url}...')
+        print(f'Processing {self.base_url}{self.path}...')
         urls = self.get_urls()
         if not urls or not title_words: 
             return []
-        
         news_data = []
         seen_links = set()
         
@@ -152,20 +162,5 @@ class WebFeed:
                     })
                     seen_links.add(link)
                 
-                    
         return news_data
     
-
-@dataclass
-class GovernmentWebFeed(WebFeed):
-    base_url: str = "https://www.canada.ca/en/news/web-feeds.html"
-    
-
-
-@dataclass
-class CBCWebFeed(WebFeed):
-    base_url: str = "https://www.cbc.ca/rss/"
-
-@dataclass
-class RCMPWebFeed(WebFeed):
-    base_url = "https://rcmp.ca/en/news#n"

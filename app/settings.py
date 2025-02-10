@@ -2,8 +2,12 @@ import os
 import logging
 import pandas as pd
 
+'''
+    Settings, Constants used throughout the code
+'''
+
 # Constants
-DEBUG = True
+DEBUG = False
 MAX_THREADS = os.cpu_count()
 
 # Debug config
