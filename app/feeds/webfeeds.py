@@ -13,11 +13,12 @@ from urllib.parse import urlparse, urljoin
 '''
 
 
-'''
-    Parent class for all WebFeeds
-'''
+
 @dataclass
 class WebFeed:
+    '''
+        Parent class for all WebFeeds
+    '''
     base_url: str = field(default_factory=str)
     path: str = field(default_factory=str)
     headers = {
@@ -25,10 +26,11 @@ class WebFeed:
     }
     parser_type: Literal["html", "xml"] = "html"
     
-    '''
-        Get an HTTP request's content. Return none if any errors
-    '''
+
     def get_request(self, url) -> bytes:
+        '''
+            Get an HTTP request's content. Return none if any errors
+        '''
         parsed = urlparse(url)
 
         if not parsed.netloc: # path, not url
@@ -46,12 +48,13 @@ class WebFeed:
             logging.debug(f"Request failed on {url}: {e}")
         return None
     
-    '''
-        From the base_url given, get all of the RSS or ATOM web feeds
-        
-        Returns a set of RSS/ATOM links
-    '''
+
     def get_urls(self) -> set[str]:
+        '''
+            From the base_url given, get all of the RSS or ATOM web feeds
+        
+            Returns a set of RSS/ATOM links
+        '''
         content = self.get_request(f"{self.base_url}{self.path}")
 
         if not content:
@@ -62,12 +65,13 @@ class WebFeed:
         links = [link for link in links if 'rss' in link or 'atom' in link or 'feed' in link]
         return set(links)
     
-    '''
-        In every feed, check if the title of the entry has any keywords given
-        
-        Returns a list of entries
-    '''
+
     def check_feed_for_word(self, words: list[str], entries) -> list:
+        '''
+            In every feed, check if the title of the entry has any keywords given
+        
+            Returns a list of entries
+        '''
         keyword_entries = []
         if not words or not entries:
             return []
@@ -81,12 +85,13 @@ class WebFeed:
                 keyword_entries.append(entry)
         return keyword_entries
     
-    '''
-        In every entry, check if the body of the article has any keywords given
-        
-        Returns boolean
-    '''
+
     def check_entry_for_word(self, words: list[str], content) -> bool:
+        '''
+            In every entry, check if the body of the article has any keywords given
+        
+            Returns boolean
+        '''
         # parse the news article itself
         soup = BeautifulSoup(content, 'html.parser')
         page_text = soup.body.get_text().lower() if soup.body else ""
@@ -94,12 +99,13 @@ class WebFeed:
             return True
         return False
     
-    '''
-        Get all data from the webfeed links in base_url
-        
-        Returns a list of dictionaries of the title and links corresponding to the keywords
-    '''
+    
     def get_webfeed(self, title_words: list[str], feed_words: list[str]) -> list[dict]:
+        '''
+            Get all data from the webfeed links in base_url
+        
+            Returns a list of dictionaries of the title and links corresponding to the keywords
+        '''
         print(f'Processing {self.base_url}{self.path}...')
         urls = self.get_urls()
         if not urls or not title_words: 
