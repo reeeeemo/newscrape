@@ -8,6 +8,17 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 import asyncio
 from gui.window import Window
+import sys
+
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # Running inside a PyInstaller bundle
+    browser_path = os.path.join(sys._MEIPASS, 'ms-playwright')
+else:
+    # Running in a regular Python environment
+    browser_path = os.path.join(os.path.expanduser("~"), "AppData", "Local", "ms-playwright")
+
+# Set the Playwright environment variable for browser path
+os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browser_path
 
 # makes output if it doesnt exist as a folder
 os.makedirs("output", exist_ok=True)
@@ -87,10 +98,10 @@ async def main():
     if news_data:
         df = pd.DataFrame(news_data)    
         df.to_csv('output/news_articles.csv', index=False)
+        logging.debug(df)
     else:
         logging.info('No articles found.')    
     
-    logging.debug(df)
     end_time = time.time()
     elapsed_time = end_time - start_time
     logging.info(f'Elapsed time: {elapsed_time:.3f}s')

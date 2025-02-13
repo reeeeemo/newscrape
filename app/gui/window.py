@@ -19,6 +19,7 @@ class Window(tk.Tk):
         self.create_info_labels()
         self.entry = self.create_entry_widget()
         self.tree = self.create_tree_widget()
+        self.submit_txt = self.create_submit_widget()
 
         # variables for the newscraper
         self.keywords = []
@@ -71,14 +72,20 @@ class Window(tk.Tk):
         scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=tree.yview)
         tree.configure(yscroll=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
-        
+
+        return tree
+    
+    def create_submit_widget(self) -> ttk.Label:
         submit_btn = ttk.Button(self, text='Submit', command=self.shutdown)
         submit_btn.pack(pady=5)
 
-        l4 = ttk.Label(self, text='output is in output/news_articles.csv', style='Desk.TLabel')
+        submit_txt = tk.StringVar()
+        submit_txt.set('output is in output/news_articles.csv')
+
+        l4 = ttk.Label(self, textvariable=submit_txt, style='Desk.TLabel')
         l4.pack(pady=5)
 
-        return tree
+        return submit_txt
     
     def treeview_add(self):
         text = self.entry.get()
@@ -107,5 +114,8 @@ class Window(tk.Tk):
             self.tree.delete(item)
             
     def shutdown(self):
-        logging.debug('Exiting Window...')
-        self.destroy()
+        if len(self.keywords) != 0:
+            logging.debug('Exiting Window...')
+            self.destroy()
+        else:
+            self.submit_txt.set('At least 1 Keyword NEEDED')
