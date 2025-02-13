@@ -75,6 +75,9 @@ class Window(tk.Tk):
         submit_btn = ttk.Button(self, text='Submit', command=self.shutdown)
         submit_btn.pack(pady=5)
 
+        l4 = ttk.Label(self, text='output is in output/news_articles.csv', style='Desk.TLabel')
+        l4.pack(pady=5)
+
         return tree
     
     def treeview_add(self):
@@ -100,7 +103,7 @@ class Window(tk.Tk):
             if values[0]:
                 self.keywords.remove(values[0])
             if values[1]:
-                self.feedwords.remove(values[0])
+                self.feedwords.remove(values[1])
             self.tree.delete(item)
             
     def shutdown(self):

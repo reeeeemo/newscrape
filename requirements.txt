@@ -1,0 +1,6 @@
+pandas
+playwright
+beautifulsoup4
+requests
+feedparser
+tk

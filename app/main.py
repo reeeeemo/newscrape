@@ -1,4 +1,3 @@
-from tkinter import messagebox
 import pandas as pd
 from feeds.webfeeds import WebFeed
 from feeds.jswebfeeds import RCMPWebFeed
@@ -53,6 +52,8 @@ def get_user_keywords_input() -> (list[str], list[str]):
     '''
         Gets keywords and feedwords chosen from user. These will define which articles to collect
         Returns the pair of lists (keywords, feedwords)
+        
+        FOR DEBUG USE ONLY -- USES CONSOLE
     '''
     print('If multiple keyword entries, seperate with commas. These are optional. Case Insensitive.')
     entry = input('Please enter the keywords you wish to use to search in the article titles for: ')
@@ -68,10 +69,10 @@ async def main():
     # start timer + get keywords and feedwords
     start_time = time.time()
     
-    window = Window(title='newscrape - News Scraper', w=650, h=650, x=250, y=400)
+    window = Window(title='newscrape - News Scraper', w=650, h=700, x=250, y=400)
     window.mainloop()
     keywords, feedwords = window.keywords, window.feedwords
-    # keywords, feedwords = get_user_keywords_input()
+    # keywords, feedwords = get_user_keywords_input() # Uncomment this, and comment out the window code if debugging
     print(f'Keywords: {keywords}\nFeedwords: {feedwords}')
 
     # get function tasks for our webfeeds, then asynchronously get them
