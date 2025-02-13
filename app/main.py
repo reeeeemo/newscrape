@@ -1,3 +1,4 @@
+from tkinter import messagebox
 import pandas as pd
 from feeds.webfeeds import WebFeed
 from feeds.jswebfeeds import RCMPWebFeed
@@ -7,7 +8,7 @@ from settings import MAX_THREADS
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import asyncio
-from tkinter import *
+from gui.window import Window
 
 # makes output if it doesnt exist as a folder
 os.makedirs("output", exist_ok=True)
@@ -62,10 +63,15 @@ def get_user_keywords_input() -> (list[str], list[str]):
     
     return keyword_entries, feedword_entries
 
+
 async def main():
     # start timer + get keywords and feedwords
     start_time = time.time()
-    keywords, feedwords = get_user_keywords_input()
+    
+    window = Window(title='newscrape - News Scraper', w=650, h=650, x=250, y=400)
+    window.mainloop()
+    keywords, feedwords = window.keywords, window.feedwords
+    # keywords, feedwords = get_user_keywords_input()
     print(f'Keywords: {keywords}\nFeedwords: {feedwords}')
 
     # get function tasks for our webfeeds, then asynchronously get them
@@ -87,6 +93,8 @@ async def main():
     end_time = time.time()
     elapsed_time = end_time - start_time
     logging.info(f'Elapsed time: {elapsed_time:.3f}s')
+    
+    print('Your articles can be found in output/news_articles.csv')
 
 if __name__ == "__main__":
     asyncio.run(main())    

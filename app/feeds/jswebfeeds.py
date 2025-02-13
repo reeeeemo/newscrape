@@ -1,18 +1,8 @@
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
 from typing import Literal
-
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.ie.webdriver import WebDriver
-
 import asyncio
 from playwright.async_api import Page, async_playwright
-
-from settings import MAX_THREADS
 import logging
 import re
 from urllib.parse import urlparse, urljoin
@@ -150,9 +140,7 @@ class RCMPWebFeed(JSWebFeed):
                 link = urls[i] if urls[i] else "Unknown Link"
                 news_results.append({
                     'Title': title,
-                    'Link': link
+                    'Link': f'{self.base_url}{link}'
                 })
-            # beautiful soup to check for feed words inside content
-            # beautiful soup to parse for title and url
        
         return news_results 
