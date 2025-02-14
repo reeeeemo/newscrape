@@ -1,14 +1,14 @@
+import sys
+import os
 import pandas as pd
 from feeds.webfeeds import WebFeed
 from feeds.jswebfeeds import RCMPWebFeed
-import os
 import time
 from settings import MAX_THREADS
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import asyncio
 from gui.window import Window
-import sys
 
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     # Running inside a PyInstaller bundle
